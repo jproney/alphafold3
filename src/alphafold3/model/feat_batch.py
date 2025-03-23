@@ -33,7 +33,8 @@ class Batch:
 
   @property
   def num_res(self) -> int:
-    return self.token_features.aatype.shape[-1]
+    # return self.token_features.aatype.shape[-1] # This might break when we try to use batched inputs, but we'll deal with that later 
+    return self.token_features.aatype.shape[0]
 
   @classmethod
   def from_data_dict(cls, batch: features.BatchDict) -> Self:

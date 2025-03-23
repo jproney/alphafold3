@@ -262,8 +262,8 @@ class Evoformer(hk.Module):
           batch.token_features, target_feat
       )
 
-      print(prev['pair'].shape)
-      print(pair_activations.shape)
+    #   print(prev['pair'].shape)
+    #   print(pair_activations.shape)
 
       pair_activations += hm.Linear(
           pair_activations.shape[-1],
