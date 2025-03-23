@@ -262,6 +262,8 @@ class Evoformer(hk.Module):
           batch.token_features, target_feat
       )
 
+      print(pair_activations.shape)
+      
       pair_activations += hm.Linear(
           pair_activations.shape[-1],
           name='prev_embedding',
