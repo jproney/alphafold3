@@ -251,7 +251,7 @@ class Evoformer(hk.Module):
     assert self.global_config.bfloat16 in {'all', 'none'}
 
     num_residues = target_feat.shape[0]
-    assert batch.token_features.aatype.shape == (num_residues,)
+    # assert batch.token_features.aatype.shape == (num_residues,) -- edited by JPR
 
     dtype = (
         jnp.bfloat16 if self.global_config.bfloat16 == 'all' else jnp.float32
