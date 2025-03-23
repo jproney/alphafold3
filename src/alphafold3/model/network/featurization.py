@@ -111,9 +111,15 @@ def gumbel_argsort_sample_idx(
 
 def create_msa_feat(msa: features.MSA) -> chex.ArrayDevice:
   """Create and concatenate MSA features."""
-  msa_1hot = jax.nn.one_hot(
-      msa.rows, residue_names.POLYMER_TYPES_NUM_WITH_UNKNOWN_AND_GAP + 1
-  )
+
+  # allow user to circumvent one-hot if desired
+  if len(msa.rows.shape) == 2:
+    msa_1hot = jax.nn.one_hot(
+        msa.rows, residue_names.POLYMER_TYPES_NUM_WITH_UNKNOWN_AND_GAP + 1
+    )
+  else:
+    msa_1hot = msa.rows
+
   deletion_matrix = msa.deletion_matrix
   has_deletion = jnp.clip(deletion_matrix, 0.0, 1.0)[..., None]
   deletion_value = (jnp.arctan(deletion_matrix / 3.0) * (2.0 / jnp.pi))[
@@ -142,6 +148,7 @@ def create_target_feat(
   token_features = batch.token_features
   target_features = []
 
+  # allow user to circumvent one-hot if desired
   if len(token_features.aatype.shape) == 1:
     target_features.append(
         jax.nn.one_hot(
@@ -151,7 +158,7 @@ def create_target_feat(
     )
   else:
     target_features.append(token_features.aatype)
-    
+
   target_features.append(batch.msa.profile)
   target_features.append(batch.msa.deletion_mean[..., None])
 
