@@ -141,12 +141,17 @@ def create_target_feat(
   """Make target feat."""
   token_features = batch.token_features
   target_features = []
-  target_features.append(
-      jax.nn.one_hot(
-          token_features.aatype,
-          residue_names.POLYMER_TYPES_NUM_WITH_UNKNOWN_AND_GAP,
-      )
-  )
+
+  if len(token_features.aatype.shape) == 1:
+    target_features.append(
+        jax.nn.one_hot(
+            token_features.aatype,
+            residue_names.POLYMER_TYPES_NUM_WITH_UNKNOWN_AND_GAP,
+        )
+    )
+  else:
+    target_features.append(token_features.aatype)
+    
   target_features.append(batch.msa.profile)
   target_features.append(batch.msa.deletion_mean[..., None])
 
