@@ -327,7 +327,7 @@ class Model(hk.Module):
       )(samples['atom_positions'])
     else:
       samples = None
-      confidence_head = {}
+      confidence_output = {}
 
     distogram = distogram_head.DistogramHead(
         self.config.heads.distogram, self.global_config
