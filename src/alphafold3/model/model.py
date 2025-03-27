@@ -305,25 +305,29 @@ class Model(hk.Module):
       num_iter = self.config.num_recycles + 1
       embeddings, _ = hk.fori_loop(0, num_iter, recycle_body, (embeddings, key))
 
-    samples = self._sample_diffusion(
-        batch,
-        embeddings,
-        sample_config=self.config.heads.diffusion.eval,
-    )
+    if self.config.heads.diffusion.eval.num_samples > 0:
+      samples = self._sample_diffusion(
+          batch,
+          embeddings,
+          sample_config=self.config.heads.diffusion.eval,
+      )
 
-    # Compute dist_error_fn over all samples for distance error logging.
-    confidence_output = mapping.sharded_map(
-        lambda dense_atom_positions: confidence_head.ConfidenceHead(
-            self.config.heads.confidence, self.global_config
-        )(
-            dense_atom_positions=dense_atom_positions,
-            embeddings=embeddings,
-            seq_mask=batch.token_features.mask,
-            token_atoms_to_pseudo_beta=batch.pseudo_beta_info.token_atoms_to_pseudo_beta,
-            asym_id=batch.token_features.asym_id,
-        ),
-        in_axes=0,
-    )(samples['atom_positions'])
+      # Compute dist_error_fn over all samples for distance error logging.
+      confidence_output = mapping.sharded_map(
+          lambda dense_atom_positions: confidence_head.ConfidenceHead(
+              self.config.heads.confidence, self.global_config
+          )(
+              dense_atom_positions=dense_atom_positions,
+              embeddings=embeddings,
+              seq_mask=batch.token_features.mask,
+              token_atoms_to_pseudo_beta=batch.pseudo_beta_info.token_atoms_to_pseudo_beta,
+              asym_id=batch.token_features.asym_id,
+          ),
+          in_axes=0,
+      )(samples['atom_positions'])
+    else:
+      samples = None
+      confidence_head = {}
 
     distogram = distogram_head.DistogramHead(
         self.config.heads.distogram, self.global_config
