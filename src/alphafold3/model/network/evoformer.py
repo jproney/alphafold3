@@ -33,7 +33,6 @@ class Evoformer(hk.Module):
   class PairformerConfig(modules.PairFormerIteration.Config):  # pytype: disable=invalid-function-definition
     block_remat: bool = False
     remat_block_size: int = 8
-    remat_freq: int = 0
 
   class Config(base_config.BaseConfig):
     """Configuration for Evoformer."""
@@ -48,7 +47,6 @@ class Evoformer(hk.Module):
         single_transition=base_config.autocreate(),
         single_attention=base_config.autocreate(),
         num_layer=48,
-        remat_freq=0
     )
     per_atom_conditioning: atom_cross_attention.AtomCrossAttEncoderConfig = (
         base_config.autocreate(
@@ -319,25 +317,46 @@ class Evoformer(hk.Module):
             with_single=True,
             name='trunk_pairformer',
         )
-        pair_act, single_act, idx = x
-
-        if  self.config.pairformer.remat_freq > 0 and idx % self.config.pairformer.remat_freq == 0:
-            pairformer_iteration = jax.checkpoint(pairformer_iteration)
-
-
-        return (*pairformer_iteration(
+        pair_act, single_act = x
+        return pairformer_iteration(
             act=pair_act,
             single_act=single_act,
             pair_mask=pair_mask,
             seq_mask=batch.token_features.mask.astype(dtype),
-        ), idx+1)
+        )
+    
+      if self.config.pairformer.block_remat:
+        def blockwise_checkpoint(pairformer_fn, num_layers, remat_block_size):
+          """Wraps layers into blocks and applies checkpointing to each block."""
+          num_blocks = (num_layers + remat_block_size - 1) // remat_block_size  # Ceiling division
 
-      pairformer_stack = hk.experimental.layer_stack(
-          self.config.pairformer.num_layer
-      )(pairformer_fn)
+          def apply_fn(x):
+            for block_idx in range(num_blocks):
+              start = block_idx * remat_block_size
+              end = min(start + remat_block_size, num_layers)
 
-      pair_activations, single_activations, _ = pairformer_stack(
-          (pair_activations, single_activations, 0)
+              def apply_block(x):
+                """Applies a block of layers."""
+                return hk.experimental.layer_stack(end - start)(pairformer_fn)(x)
+
+                # Checkpoint the entire block to reduce memory usage
+            x = jax.checkpoint(apply_block)(x)
+
+            return x
+
+          return apply_fn
+
+        # Create the blockwise rematerialized pairformer stack
+        pairformer_stack = blockwise_checkpoint(
+          pairformer_fn, self.config.pairformer.num_layer, self.config.pairformer.remat_block_size
+        )
+      else:
+        pairformer_stack = hk.experimental.layer_stack(
+            self.config.pairformer.num_layer
+        )(pairformer_fn)
+
+      pair_activations, single_activations = pairformer_stack(
+          (pair_activations, single_activations)
       )
 
       assert pair_activations.shape == (
