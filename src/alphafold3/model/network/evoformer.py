@@ -33,6 +33,7 @@ class Evoformer(hk.Module):
   class PairformerConfig(modules.PairFormerIteration.Config):  # pytype: disable=invalid-function-definition
     block_remat: bool = False
     remat_block_size: int = 8
+    remat_freq: int = 0
 
   class Config(base_config.BaseConfig):
     """Configuration for Evoformer."""
