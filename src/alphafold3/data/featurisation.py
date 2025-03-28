@@ -41,6 +41,7 @@ def featurise_input(
     buckets: Sequence[int] | None,
     ref_max_modified_date: datetime.date | None = None,
     conformer_max_iterations: int | None = None,
+    msa_crop_size = 16384,
     verbose: bool = False,
 ) -> Sequence[features.BatchDict]:
   """Featurise the folding input.
@@ -73,6 +74,7 @@ def featurise_input(
           buckets=buckets,
           ref_max_modified_date=ref_max_modified_date,
           conformer_max_iterations=conformer_max_iterations,
+          msa_crop_size=msa_crop_size
       ),
   )
 
