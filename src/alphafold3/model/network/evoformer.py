@@ -47,6 +47,7 @@ class Evoformer(hk.Module):
         single_transition=base_config.autocreate(),
         single_attention=base_config.autocreate(),
         num_layer=48,
+        remat_freq=0
     )
     per_atom_conditioning: atom_cross_attention.AtomCrossAttEncoderConfig = (
         base_config.autocreate(
@@ -317,20 +318,25 @@ class Evoformer(hk.Module):
             with_single=True,
             name='trunk_pairformer',
         )
-        pair_act, single_act = x
-        return pairformer_iteration(
+        pair_act, single_act, idx = x
+
+        if  self.config.pairformer.remat_freq > 0 and idx % self.config.pairformer.remat_freq == 0:
+            pairformer_iteration = jax.checkpoint(pairformer_iteration)
+
+
+        return (*pairformer_iteration(
             act=pair_act,
             single_act=single_act,
             pair_mask=pair_mask,
             seq_mask=batch.token_features.mask.astype(dtype),
-        )
+        ), idx+1)
 
       pairformer_stack = hk.experimental.layer_stack(
           self.config.pairformer.num_layer
       )(pairformer_fn)
 
-      pair_activations, single_activations = pairformer_stack(
-          (pair_activations, single_activations)
+      pair_activations, single_activations, _ = pairformer_stack(
+          (pair_activations, single_activations, 0)
       )
 
       assert pair_activations.shape == (
