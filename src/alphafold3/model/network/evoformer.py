@@ -332,12 +332,10 @@ class Evoformer(hk.Module):
 
           def body_fn(i, x):
               """Function applied at each scan step (processing one block)."""
-              start = i * remat_block_size
-              end = min(start + remat_block_size, num_layers)
 
               def apply_block(x):
                 """Applies a block of layers."""
-                return hk.experimental.layer_stack(end - start)(pairformer_fn)(x)
+                return hk.experimental.layer_stack(remat_block_size)(pairformer_fn)(x)
 
               # Checkpoint the block computation
               new_x = jax.checkpoint(apply_block)(x)
