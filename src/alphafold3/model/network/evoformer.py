@@ -343,7 +343,7 @@ class Evoformer(hk.Module):
 
           def apply_fn(x):
             """Scanned function over num_blocks iterations."""
-            output, _ = hk.fori_loop(0, num_blocks, body_fn, x)
+            output = hk.fori_loop(0, num_blocks, body_fn, x)
             return output
 
           return apply_fn
