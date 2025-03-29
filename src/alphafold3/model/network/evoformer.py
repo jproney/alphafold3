@@ -340,7 +340,7 @@ class Evoformer(hk.Module):
                 return hk.experimental.layer_stack(end - start)(pairformer_fn)(x)
 
                 # Checkpoint the entire block to reduce memory usage
-            x = jax.checkpoint(apply_block)(x)
+              x = jax.checkpoint(apply_block)(x)
 
             return x
 
