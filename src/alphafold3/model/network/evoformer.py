@@ -330,7 +330,7 @@ class Evoformer(hk.Module):
           """Wraps layers into blocks and applies checkpointing to each block using hk.scan."""
           num_blocks = (num_layers + remat_block_size - 1) // remat_block_size  # Ceiling division
 
-          def scan_fn(x, i):
+          def body_fn(i, x):
               """Function applied at each scan step (processing one block)."""
               start = i * remat_block_size
               end = min(start + remat_block_size, num_layers)
@@ -341,11 +341,11 @@ class Evoformer(hk.Module):
 
               # Checkpoint the block computation
               new_x = jax.checkpoint(apply_block)(x)
-              return new_x, None  # Update carry (block index), return new state
+              return new_x  # Update carry (block index), return new state
 
           def apply_fn(x):
             """Scanned function over num_blocks iterations."""
-            output, _ = hk.scan(scan_fn, x, xs=jnp.arange(num_blocks), length=num_blocks)
+            output, _ = hk.fori_loop(0, num_blocks, body_fn, x)
             return output
 
           return apply_fn
