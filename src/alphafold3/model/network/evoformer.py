@@ -326,26 +326,26 @@ class Evoformer(hk.Module):
         )
     
       if self.config.pairformer.block_remat:
-        def blockwise_checkpoint(pairformer_fn, num_layers, remat_block_size):
-          """Wraps layers into blocks and applies checkpointing to each block using hk.scan."""
+        def blockwise_checkpoint(fn, num_layers, remat_block_size):
+          """Wraps layers into blocks and applies checkpointing to each block."""
           num_blocks = (num_layers + remat_block_size - 1) // remat_block_size  # Ceiling division
-
-          def body_fn(i, x):
-              """Function applied at each scan step (processing one block)."""
-
-              def apply_block(x):
-                """Applies a block of layers."""
-                return hk.experimental.layer_stack(remat_block_size)(pairformer_fn)(x)
-
-              # Checkpoint the block computation
-              new_x = jax.checkpoint(apply_block)(x)
-              return new_x  # Update carry (block index), return new state
-
+            
+          # Pre-create the layer stacks for each block to avoid recreating them in the loop
+          blocks = []
+          remaining_layers = num_layers
+          for _ in range(num_blocks):
+            # Handle the last block which might have fewer layers
+            block_size = min(remat_block_size, remaining_layers)
+            block = hk.experimental.layer_stack(block_size)(fn)
+            blocks.append(block)
+            remaining_layers -= block_size
+            
           def apply_fn(x):
-            """Scanned function over num_blocks iterations."""
-            output = hk.fori_loop(0, num_blocks, body_fn, x)
-            return output
-
+            """Apply all blocks sequentially with checkpointing."""
+            for block in blocks:
+              x = jax.checkpoint(block)(x)
+              return x
+            
           return apply_fn
 
         # Create the blockwise rematerialized pairformer stack
