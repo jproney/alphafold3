@@ -345,7 +345,7 @@ class Evoformer(hk.Module):
 
           def apply_fn(x):
             """Scanned function over num_blocks iterations."""
-            _, output = hk.scan(scan_fn, x, xs=0, length=num_blocks)
+            output, _ = hk.scan(scan_fn, x, xs=jnp.arange(num_blocks), length=num_blocks)
             return output
 
           return apply_fn
