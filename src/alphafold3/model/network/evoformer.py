@@ -327,22 +327,26 @@ class Evoformer(hk.Module):
     
       if self.config.pairformer.block_remat:
         def blockwise_checkpoint(pairformer_fn, num_layers, remat_block_size):
-          """Wraps layers into blocks and applies checkpointing to each block."""
+          """Wraps layers into blocks and applies checkpointing to each block using hk.scan."""
           num_blocks = (num_layers + remat_block_size - 1) // remat_block_size  # Ceiling division
 
-          def apply_fn(x):
-            for block_idx in range(num_blocks):
-              start = block_idx * remat_block_size
+          def scan_fn(x, i):
+              """Function applied at each scan step (processing one block)."""
+              start = i * remat_block_size
               end = min(start + remat_block_size, num_layers)
 
               def apply_block(x):
                 """Applies a block of layers."""
                 return hk.experimental.layer_stack(end - start)(pairformer_fn)(x)
 
-                # Checkpoint the entire block to reduce memory usage
-              x = jax.checkpoint(apply_block)(x)
+              # Checkpoint the block computation
+              new_x = jax.checkpoint(apply_block)(x)
+              return new_x, None  # Update carry (block index), return new state
 
-            return x
+          def apply_fn(x):
+            """Scanned function over num_blocks iterations."""
+            _, output = hk.scan(scan_fn, x, xs=0, length=num_blocks)
+            return output
 
           return apply_fn
 
