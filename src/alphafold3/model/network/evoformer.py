@@ -330,21 +330,9 @@ class Evoformer(hk.Module):
         remat_block_size = self.config.pairformer.remat_block_size
         num_blocks = (num_layers + remat_block_size - 1) // remat_block_size  # Ceiling division
 
-        blocks = []
-        remaining_layers = num_layers
-        for _ in range(num_blocks):
-          block_size = min(remat_block_size, remaining_layers)
-          blocks.append(hk.experimental.layer_stack(block_size)(pairformer_fn))
-          remaining_layers -= block_size
-
-        def apply_blocks(x):
-          """Applies checkpointing sequentially over pre-created blocks."""
-          for block in blocks:
-            x = jax.checkpoint(block)(x)
-          return x
 
         # Create the blockwise rematerialized pairformer stack
-        pairformer_stack = apply_blocks
+        pairformer_stack = hk.experimental.layer_stack(num_blocks)(jax.checkpoint(hk.experimental.layer_stack(remat_block_size)(pairformer_fn)))
       else:
         pairformer_stack = hk.experimental.layer_stack(
             self.config.pairformer.num_layer
